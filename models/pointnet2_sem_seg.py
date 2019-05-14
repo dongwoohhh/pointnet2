@@ -35,9 +35,10 @@ def get_model(point_cloud, is_training, num_class, bn_decay=None):
     l2_points = pointnet_fp_module(l2_xyz, l3_xyz, l2_points, l3_points, [256,256], is_training, bn_decay, scope='fa_layer2')
     l1_points = pointnet_fp_module(l1_xyz, l2_xyz, l1_points, l2_points, [256,128], is_training, bn_decay, scope='fa_layer3')
     l0_points = pointnet_fp_module(l0_xyz, l1_xyz, l0_points, l1_points, [128,128,128], is_training, bn_decay, scope='fa_layer4')
-
+    print(l0_points)
     # FC layers
     net = tf_util.conv1d(l0_points, 128, 1, padding='VALID', bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+    print(net)
     end_points['feats'] = net 
     net = tf_util.dropout(net, keep_prob=0.5, is_training=is_training, scope='dp1')
     net = tf_util.conv1d(net, num_class, 1, padding='VALID', activation_fn=None, scope='fc2')

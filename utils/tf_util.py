@@ -18,7 +18,7 @@ def _variable_on_cpu(name, shape, initializer, use_fp16=False):
   """
   with tf.device("/cpu:0"):
     dtype = tf.float16 if use_fp16 else tf.float32
-    var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+    var = tf.Variable(initial_value=initializer(shape, dtype=dtype), trainable=True)
   return var
 
 def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
@@ -38,10 +38,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd, use_xavier=True):
   Returns:
     Variable Tensor
   """
-  if use_xavier:
-    initializer = tf.contrib.layers.xavier_initializer()
-  else:
-    initializer = tf.truncated_normal_initializer(stddev=stddev)
+
+  initializer = tf.random_normal_initializer()
   var = _variable_on_cpu(name, shape, initializer)
   if wd is not None:
     weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
@@ -152,37 +150,37 @@ def conv2d(inputs,
   Returns:
     Variable tensor
   """
-  with tf.variable_scope(scope) as sc:
-      kernel_h, kernel_w = kernel_size
-      assert(data_format=='NHWC' or data_format=='NCHW')
-      if data_format == 'NHWC':
-        num_in_channels = inputs.get_shape()[-1].value
-      elif data_format=='NCHW':
-        num_in_channels = inputs.get_shape()[1].value
-      kernel_shape = [kernel_h, kernel_w,
-                      num_in_channels, num_output_channels]
-      kernel = _variable_with_weight_decay('weights',
-                                           shape=kernel_shape,
-                                           use_xavier=use_xavier,
-                                           stddev=stddev,
-                                           wd=weight_decay)
-      stride_h, stride_w = stride
-      outputs = tf.nn.conv2d(inputs, kernel,
-                             [1, stride_h, stride_w, 1],
-                             padding=padding,
-                             data_format=data_format)
-      biases = _variable_on_cpu('biases', [num_output_channels],
-                                tf.constant_initializer(0.0))
-      outputs = tf.nn.bias_add(outputs, biases, data_format=data_format)
+  #with tf.variable_scope(scope) as sc:
+  kernel_h, kernel_w = kernel_size
+  assert(data_format=='NHWC' or data_format=='NCHW')
+  if data_format == 'NHWC':
+    num_in_channels = inputs.get_shape()[-1]
+  elif data_format=='NCHW':
+    num_in_channels = inputs.get_shape()[1]
+  kernel_shape = [kernel_h, kernel_w,
+                  num_in_channels, num_output_channels]
+  kernel = _variable_with_weight_decay('weights',
+                                        shape=kernel_shape,
+                                        use_xavier=use_xavier,
+                                        stddev=stddev,
+                                        wd=weight_decay)
+  stride_h, stride_w = stride
+  outputs = tf.nn.conv2d(inputs, kernel,
+                          [1, stride_h, stride_w, 1],
+                          padding=padding,
+                          data_format=data_format)
+  biases = _variable_on_cpu('biases', [num_output_channels],
+                            tf.constant_initializer(0.0))
+  outputs = tf.nn.bias_add(outputs, biases, data_format=data_format)
 
-      if bn:
-        outputs = batch_norm_for_conv2d(outputs, is_training,
-                                        bn_decay=bn_decay, scope='bn',
-                                        data_format=data_format)
+  if bn:
+    outputs = batch_norm_for_conv2d(outputs, is_training,
+                                    bn_decay=bn_decay, scope='bn',
+                                    data_format=data_format)
 
-      if activation_fn is not None:
-        outputs = activation_fn(outputs)
-      return outputs
+  if activation_fn is not None:
+    outputs = activation_fn(outputs)
+  return outputs
 
 
 def conv2d_transpose(inputs,
