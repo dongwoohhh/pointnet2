@@ -1,10 +1,13 @@
 import tensorflow as tf
+#import tensorflow.compat.v1 as tf
+#tf.disable_v2_behavior()
 from tensorflow.python.framework import ops
 import sys
 import os
+
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(BASE_DIR)
-interpolate_module=tf.load_op_library(os.path.join(BASE_DIR, 'tf_interpolate_so.so'))
+interpolate_module=tf.load_op_library(os.path.join(BASE_DIR, 'tf_interpolate_gpu_so.so'))
 def three_nn(xyz1, xyz2):
     '''
     Input:
@@ -34,26 +37,41 @@ def _three_interpolate_grad(op, grad_out):
     return [interpolate_module.three_interpolate_grad(points, idx, weight, grad_out), None, None]
 
 if __name__=='__main__':
+    import tensorflow as tf
+    #tf.disable_v2_behavior()
     import numpy as np
     import time
     np.random.seed(100)
-    pts = np.random.random((32,128,64)).astype('float32')
-    tmp1 = np.random.random((32,512,3)).astype('float32')
-    tmp2 = np.random.random((32,128,3)).astype('float32')
-    with tf.device('/cpu:0'):
+    
+    #pts = np.random.random((32,128,64)).astype('float32')
+    #tmp1 = np.random.random((32,512,3)).astype('float32')
+    #tmp2 = np.random.random((32,128,3)).astype('float32')
+    pts = np.random.random((1,8,16)).astype('float32')
+    tmp1 = np.random.random((1,128,3)).astype('float32')
+    tmp2 = np.random.random((1,8,3)).astype('float32')
+    with tf.device('/gpu:0'):
         points = tf.constant(pts)
         xyz1 = tf.constant(tmp1)
         xyz2 = tf.constant(tmp2)
         dist, idx = three_nn(xyz1, xyz2)
         weight = tf.ones_like(dist)/3.0
+        points = tf.transpose(points, (0, 2, 1))
+        print(points.shape)
         interpolated_points = three_interpolate(points, idx, weight)
-    with tf.Session('') as sess:
+        print(interpolated_points.shape)
+        interpolated_points = tf.transpose(interpolated_points, (0, 2, 1))
+        print(interpolated_points.shape)
+        #idx_float = tf.cast(idx, tf.float32)
+        grad = tf.test.compute_gradient(three_interpolate, [points, weight])
+        """
         now = time.time() 
         for _ in range(100):
-            ret = sess.run(interpolated_points)
+            interpolated_points = three_interpolate(points, idx, weight)
+            interpolated_points = tf.transpose(interpolated_points, (0, 2, 1))
         print(time.time() - now)
-        print(ret.shape, ret.dtype)
-        #print ret
+        """
+        #print(interpolated_points.shape, interpolated_points.dtype)
+
     
     
     
